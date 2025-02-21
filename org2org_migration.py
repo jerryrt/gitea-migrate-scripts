@@ -13,17 +13,20 @@ GITEA_URL = os.getenv('GITEA_URL', 'http://localhost:3000')
 GITEA_USERNAME = os.getenv('GITEA_USERNAME', 'nobody')
 GITEA_PASSWORD = os.getenv('GITEA_PASSWORD', 'password')
 GITEA_TOKEN = os.getenv('GITEA_TOKEN', 'token')
+GITEA_ORG = os.getenv('GITEA_ORG', 'gitea_org')
 
 # GitHub configuration (Token authentication only)
 GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'nobody')
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'token')
+GITHUB_ORG = os.getenv('GITHUB_ORG', 'github_org')
 
 def debug_log(message):
     """Print debug messages only when DEBUG mode is enabled."""
     if DEBUG:
         print("[DEBUG]", message)
 
-def load_finished_repos(file_path='finishedRepoUser.json'):
+RESULT_JSON = 'finishedRepoOrg.json'
+def load_finished_repos(file_path=RESULT_JSON):
     """
     Load the list of finished repositories.
     If the file does not exist or the data format is invalid, return an empty list.
@@ -33,15 +36,15 @@ def load_finished_repos(file_path='finishedRepoUser.json'):
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if not isinstance(data, list):
-                    debug_log("Data in finishedRepo.json is not a list, resetting to an empty list.")
+                    debug_log(f"Data in {RESULT_JSON} is not a list, resetting to an empty list.")
                     return []
                 return data
         except json.JSONDecodeError:
-            debug_log("finishedRepo.json format error, resetting to an empty list.")
+            debug_log(f"{RESULT_JSON} format error, resetting to an empty list.")
             return []
     return []
 
-def save_finished_repos(data, file_path='finishedRepo.json'):
+def save_finished_repos(data, file_path=RESULT_JSON):
     """
     Save the list of finished repositories to a file.
     """
@@ -50,24 +53,6 @@ def save_finished_repos(data, file_path='finishedRepo.json'):
 
 # Load finished repository records
 finishedRepo = load_finished_repos()
-
-def get_gitea_user_id():
-    """
-    Get the Gitea user ID.
-    Returns:
-        int: The user ID, or None if the retrieval fails.
-    """
-    url = f"{GITEA_URL}/api/v1/users/{GITEA_USERNAME}"
-    try:
-        response = requests.get(url, auth=(GITEA_USERNAME, GITEA_PASSWORD), timeout=10)
-        response.raise_for_status()
-        user_info = response.json()
-        uid = user_info.get('id')
-        debug_log(f"Fetched Gitea user ID: {uid}")
-        return uid
-    except requests.RequestException as e:
-        debug_log(f"Failed to fetch Gitea user: {e}")
-        return None
 
 def fetch_github_repos(page, per_page=100):
     """
@@ -78,8 +63,8 @@ def fetch_github_repos(page, per_page=100):
     Returns:
         list: A list of repositories, or an empty list if the request fails.
     """
-    url = f"https://api.github.com/user/repos?per_page={per_page}&page={page}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    url = f"https://api.github.com/orgs/{GITHUB_ORG}/repos?per_page={per_page}&page={page}"
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
     try:
         response = requests.get(url, headers=headers, timeout=30)
         response.raise_for_status()
@@ -90,7 +75,7 @@ def fetch_github_repos(page, per_page=100):
         debug_log(f"Failed to fetch GitHub repositories (page {page}): {e}")
         return []
 
-def migrate_repo(repo, uid):
+def migrate_repo(repo):
     """
     Migrate a single GitHub repository to Gitea.
     Args:
@@ -120,7 +105,7 @@ def migrate_repo(repo, uid):
         'mirror': False,
         'private': True,
         'repo_name': repo_name,
-        'uid': uid,
+        'repo_owner': GITEA_ORG,
         'description': description
     }
     debug_log(f"Migration payload: {payload}")
@@ -155,7 +140,7 @@ def migrate_repo(repo, uid):
     except Exception as e:
         print(f"{repo_name}: Request exception - {e}")
 
-def migrate_all_repos(uid):
+def migrate_all_repos():
     """
     Fetch GitHub repositories page by page and migrate them one by one.
     Args:
@@ -174,16 +159,14 @@ def migrate_all_repos(uid):
                 print(f"{repo.get('name')}: Already completed, skipping.")
                 continue
             
-            migrate_repo(repo, uid)
+            print(f"Starting migration of repository: {repo}")
+            migrate_repo(repo)
             # Delay to avoid too frequent requests
-            time.sleep(2)
+            time.sleep(30)
         page += 1
 
 if __name__ == '__main__':
     print("Starting Gitea repository migration program")
-    uid = get_gitea_user_id()
-    if uid is None:
-        exit("Unable to fetch Gitea user ID, program terminated.")
     
-    migrate_all_repos(uid)
+    migrate_all_repos()
     print("All repository migrations have been processed.")
