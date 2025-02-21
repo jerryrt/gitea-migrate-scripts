@@ -8,20 +8,22 @@ from requests.adapters import HTTPAdapter
 DEBUG = True
 
 # Gitea configuration (Token authentication only)
-GITEA_URL = 'https://gitea.example.com'
-GITEA_USERNAME = 'fakeUser'
-GITEA_PASSWORD = 'f4bb667932306c04c7b1eec7466be4a053f5a03e'
+# Import from environment variables
+GITEA_URL = os.getenv('GITEA_URL', 'http://localhost:3000')
+GITEA_USERNAME = os.getenv('GITEA_USERNAME', 'nobody')
+GITEA_PASSWORD = os.getenv('GITEA_PASSWORD', 'password')
+GITEA_TOKEN = os.getenv('GITEA_TOKEN', 'token')
 
 # GitHub configuration (Token authentication only)
-GITHUB_USERNAME = 'fakeGitHubUser'
-GITHUB_TOKEN = 'ghp_abcdefghijklmnopqrstuvwxyz1234567890FAKE'
+GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'nobody')
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', 'token')
 
 def debug_log(message):
     """Print debug messages only when DEBUG mode is enabled."""
     if DEBUG:
         print("[DEBUG]", message)
 
-def load_finished_repos(file_path='finishedRepo.json'):
+def load_finished_repos(file_path='finishedRepoUser.json'):
     """
     Load the list of finished repositories.
     If the file does not exist or the data format is invalid, return an empty list.
